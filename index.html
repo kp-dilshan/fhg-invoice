@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Flower Garden Hotel - Invoice Generator</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        @media print {
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="container mx-auto">
+        <!-- Currency Selection -->
+        <div class="mb-4 no-print">
+            <label for="currencySelect" class="block mb-2">Select Currency:</label>
+            <select id="currencySelect" class="p-2 border rounded">
+                <option value="USD">USD ($)</option>
+                <option value="LKR">LKR (₨)</option>
+            </select>
+        </div>
+
+        <!-- Invoice Input Form -->
+        <div class="bg-white shadow-lg rounded-lg p-8 mb-8 no-print">
+            <h2 class="text-2xl font-bold mb-6 text-green-600">FGH Invoice</h2>
+            
+            <!-- Customer Details Section (remains the same) -->
+            <div class="mb-6">
+                <h3 class="text-xl font-semibold mb-4">Customer Details</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="text" id="customerName" placeholder="Full Name" class="p-2 border rounded" required>
+                    <input type="email" id="customerEmail" placeholder="Email" class="p-2 border rounded" required>
+                    <input type="tel" id="customerPhone" placeholder="Phone Number" class="p-2 border rounded" required>
+                    <input type="text" id="customerAddress" placeholder="Address" class="p-2 border rounded" required>
+                </div>
+            </div>
+
+            <!-- Room Details Section -->
+            <div class="mb-6">
+                <h3 class="text-xl font-semibold mb-4">Room Details</h3>
+                <div id="roomInputs">
+                    <div class="grid grid-cols-5 gap-4 mb-2">
+                        <select id="roomType1" class="p-2 border rounded" required>
+                            <option value="">Select Room Type</option>
+                            <option value="Standard">Standard Room</option>
+                            <option value="Deluxe">Deluxe Room</option>
+                            <option value="Suite">Suite</option>
+                            <option value="Garden View">Garden View Room</option>
+                        </select>
+                        <input type="text" id="roomNumber1" placeholder="Room Number" class="p-2 border rounded" required>
+                        <input type="number" id="roomNights1" placeholder="Nights" min="1" class="p-2 border rounded" required>
+                        <input type="number" id="roomBasePrice1" placeholder="Base Price" class="p-2 border rounded" required>
+                        <input type="number" id="roomPrice1" placeholder="Price per Night" class="p-2 border rounded" readonly>
+                    </div>
+                </div>
+                <button onclick="addRoomInput()" class="bg-green-500 text-white px-4 py-2 rounded mt-2">
+                    Add Another Room
+                </button>
+            </div>
+
+            <!-- Restaurant Details Section -->
+            <div class="mb-6">
+                <h3 class="text-xl font-semibold mb-4">Restaurant Details</h3>
+                <div id="restaurantInputs">
+                    <div class="grid grid-cols-6 gap-4 mb-2">
+                        <input type="date" id="mealDate1" class="p-2 border rounded" required>
+                        <select id="mealType1" class="p-2 border rounded" required>
+                            <option value="">Meal Type</option>
+                            <option value="Breakfast">Breakfast</option>
+                            <option value="Lunch">Lunch</option>
+                            <option value="Dinner">Dinner</option>
+                        </select>
+                        <input type="text" id="mealLocation1" placeholder="Restaurant/Cafe" class="p-2 border rounded" required>
+                        <input type="number" id="mealQuantity1" placeholder="Quantity" min="1" class="p-2 border rounded" required>
+                        <input type="number" id="mealBasePrice1" placeholder="Base Price" class="p-2 border rounded" required>
+                        <input type="number" id="mealPrice1" placeholder="Price" class="p-2 border rounded" readonly>
+                    </div>
+                </div>
+                <button onclick="addMealInput()" class="bg-green-500 text-white px-4 py-2 rounded mt-2">
+                    Add Another Meal
+                </button>
+            </div>
+
+            <!-- Generate Invoice Button -->
+            <div class="text-center">
+                <button onclick="generateInvoice()" class="bg-blue-500 text-white px-8 py-3 rounded-lg hover:bg-blue-600">
+                    Generate Invoice
+                </button>
+            </div>
+        </div>
+
+        <!-- Invoice Display Area -->
+        <div id="invoiceDisplay" class="hidden bg-white shadow-lg rounded-lg p-8">
+            <!-- Invoice Content Will Be Dynamically Inserted Here -->
+        </div>
+
+        <!-- Print Button -->
+        <div id="printButtonContainer" class="hidden text-center mt-4">
+            <button onclick="window.print()" class="bg-green-500 text-white px-8 py-3 rounded-lg hover:bg-green-600">
+                Print Invoice
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Currency conversion rates (as of a hypothetical date)
+        const EXCHANGE_RATES = {
+            USD: 1,
+            LKR: 320 // 1 USD = 320 LKR
+        };
+
+        let roomCounter = 1;
+        let mealCounter = 1;
+
+        // Event listeners for dynamic price updating
+        document.addEventListener('DOMContentLoaded', () => {
+            // Currency selector event listener
+            document.getElementById('currencySelect').addEventListener('change', updateAllPrices);
+
+            // Initial price listeners
+            setupRoomPriceListener();
+            setupMealPriceListener();
+        });
+
+        function convertCurrency(amount, fromCurrency, toCurrency) {
+            // Convert amount from one currency to another
+            const amountInUSD = amount / EXCHANGE_RATES[fromCurrency];
+            return (amountInUSD * EXCHANGE_RATES[toCurrency]).toFixed(2);
+        }
+
+        function updateAllPrices() {
+            const selectedCurrency = document.getElementById('currencySelect').value;
+
+            // Update room prices
+            for (let i = 1; i <= roomCounter; i++) {
+                const basePriceInput = document.getElementById(`roomBasePrice${i}`);
+                const priceInput = document.getElementById(`roomPrice${i}`);
+                
+                if (basePriceInput.value) {
+                    priceInput.value = convertCurrency(basePriceInput.value, 'USD', selectedCurrency);
+                }
+            }
+
+            // Update meal prices
+            for (let i = 1; i <= mealCounter; i++) {
+                const basePriceInput = document.getElementById(`mealBasePrice${i}`);
+                const priceInput = document.getElementById(`mealPrice${i}`);
+                
+                if (basePriceInput.value) {
+                    priceInput.value = convertCurrency(basePriceInput.value, 'USD', selectedCurrency);
+                }
+            }
+        }
+
+        function setupRoomPriceListener() {
+            for (let i = 1; i <= roomCounter; i++) {
+                const basePriceInput = document.getElementById(`roomBasePrice${i}`);
+                const priceInput = document.getElementById(`roomPrice${i}`);
+                
+                basePriceInput.addEventListener('input', () => {
+                    const selectedCurrency = document.getElementById('currencySelect').value;
+                    priceInput.value = convertCurrency(basePriceInput.value, 'USD', selectedCurrency);
+                });
+            }
+        }
+
+        function setupMealPriceListener() {
+            for (let i = 1; i <= mealCounter; i++) {
+                const basePriceInput = document.getElementById(`mealBasePrice${i}`);
+                const priceInput = document.getElementById(`mealPrice${i}`);
+                
+                basePriceInput.addEventListener('input', () => {
+                    const selectedCurrency = document.getElementById('currencySelect').value;
+                    priceInput.value = convertCurrency(basePriceInput.value, 'USD', selectedCurrency);
+                });
+            }
+        }
+
+        function addRoomInput() {
+            roomCounter++;
+            const roomInputs = document.getElementById('roomInputs');
+            const newRoomInput = document.createElement('div');
+            newRoomInput.classList.add('grid', 'grid-cols-5', 'gap-4', 'mb-2');
+            newRoomInput.innerHTML = `
+                <select id="roomType${roomCounter}" class="p-2 border rounded" required>
+                    <option value="">Select Room Type</option>
+                    <option value="Standard">Standard Room</option>
+                    <option value="Deluxe">Deluxe Room</option>
+                    <option value="Suite">Suite</option>
+                    <option value="Garden View">Garden View Room</option>
+                </select>
+                <input type="text" id="roomNumber${roomCounter}" placeholder="Room Number" class="p-2 border rounded" required>
+                <input type="number" id="roomNights${roomCounter}" placeholder="Nights" min="1" class="p-2 border rounded" required>
+                <input type="number" id="roomBasePrice${roomCounter}" placeholder="Base Price" class="p-2 border rounded" required>
+                <input type="number" id="roomPrice${roomCounter}" placeholder="Price per Night" class="p-2 border rounded" readonly>
+            `;
+            roomInputs.appendChild(newRoomInput);
+            
+            // Setup price listener for new input
+            setupRoomPriceListener();
+        }
+
+        function addMealInput() {
+            mealCounter++;
+            const restaurantInputs = document.getElementById('restaurantInputs');
+            const newMealInput = document.createElement('div');
+            newMealInput.classList.add('grid', 'grid-cols-6', 'gap-4', 'mb-2');
+            newMealInput.innerHTML = `
+                <input type="date" id="mealDate${mealCounter}" class="p-2 border rounded" required>
+                <select id="mealType${mealCounter}" class="p-2 border rounded" required>
+                    <option value="">Meal Type</option>
+                    <option value="Breakfast">Breakfast</option>
+                    <option value="Lunch">Lunch</option>
+                    <option value="Dinner">Dinner</option>
+                </select>
+                <input type="text" id="mealLocation${mealCounter}" placeholder="Restaurant/Cafe" class="p-2 border rounded" required>
+                <input type="number" id="mealQuantity${mealCounter}" placeholder="Quantity" min="1" class="p-2 border rounded" required>
+                <input type="number" id="mealBasePrice${mealCounter}" placeholder="Base Price" class="p-2 border rounded" required>
+                <input type="number" id="mealPrice${mealCounter}" placeholder="Price" class="p-2 border rounded" readonly>
+            `;
+            restaurantInputs.appendChild(newMealInput);
+            
+            // Setup price listener for new input
+            setupMealPriceListener();
+        }
+
+        function generateInvoice() {
+            // Validate inputs (similar to previous code)
+            const inputs = document.querySelectorAll('input[required], select[required]');
+            for (let input of inputs) {
+                if (!input.value) {
+                    alert('Please fill in all required fields');
+                    return;
+                }
+            }
+
+            // Get selected currency
+            const selectedCurrency = document.getElementById('currencySelect').value;
+            const currencySymbol = selectedCurrency === 'USD' ? '$' : '₨';
+
+            // Collect Customer Details and Room/Restaurant Details (similar to previous code)
+            const customerName = document.getElementById('customerName').value;
+            const customerEmail = document.getElementById('customerEmail').value;
+            const customerPhone = document.getElementById('customerPhone').value;
+            const customerAddress = document.getElementById('customerAddress').value;
+
+            // Collect Room Details
+            const roomDetails = [];
+            let roomTotal = 0;
+            for (let i = 1; i <= roomCounter; i++) {
+                const roomType = document.getElementById(`roomType${i}`).value;
+                const roomNumber = document.getElementById(`roomNumber${i}`).value;
+                const roomNights = document.getElementById(`roomNights${i}`).value;
+                const roomPrice = document.getElementById(`roomPrice${i}`).value;
+
+                if (roomType && roomNights && roomPrice) {
+                    const subtotal = roomNights * roomPrice;
+                    roomTotal += subtotal;
+                    roomDetails.push({
+                        type: roomType,
+                        number: roomNumber,
+                        nights: roomNights,
+                        pricePerNight: roomPrice,
+                        subtotal: subtotal
+                    });
+                }
+            }
+
+            // Collect Restaurant Details
+            const restaurantDetails = [];
+            let restaurantTotal = 0;
+            for (let i = 1; i <= mealCounter; i++) {
+                const mealDate = document.getElementById(`mealDate${i}`).value;
+                const mealType = document.getElementById(`mealType${i}`).value;
+                const mealLocation = document.getElementById(`mealLocation${i}`).value;
+                const mealQuantity = document.getElementById(`mealQuantity${i}`).value;
+                const mealPrice = document.getElementById(`mealPrice${i}`).value;
+
+                if (mealType && mealQuantity && mealPrice) {
+                    const subtotal = mealQuantity * mealPrice;
+                    restaurantTotal += subtotal;
+                    restaurantDetails.push({
+                        date: mealDate,
+                        type: mealType,
+                        location: mealLocation,
+                        quantity: mealQuantity,
+                        price: mealPrice,
+                        subtotal: subtotal
+                    });
+                }
+            }
+
+            // Calculate Total
+            const subtotal = roomTotal + restaurantTotal;
+            const taxRate = 0.10; // 10% tax
+            const tax = subtotal * taxRate;
+            const total = subtotal + tax;
+
+            // Generate Invoice HTML (similar to previous code, with currency symbol update)
+            const invoiceDisplay = document.getElementById('invoiceDisplay');
+            const printButtonContainer = document.getElementById('printButtonContainer');
+            
+            invoiceDisplay.innerHTML = `
+                <div class="max-w-2xl mx-auto">
+                    <div class="flex justify-between items-center mb-8 border-b pb-4">
+                        <div>
+                            <h1 class="text-3xl font-bold text-green-600">Flower Garden Hotel</h1>
+                            <p class="text-gray-500">Elegant Accommodations & Dining</p>
+                        </div>
+                        <div>
+                            <img src="logo.png" alt="Flower Garden Hotel Logo" class="h-20">
+                        </div>
+                        
+                    </div>
+
+                   
+
+                         <!-- Rest of the invoice generation code remains similar, 
+                         just replace $ with ${currencySymbol} -->
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <h2 class="font-semibold text-gray-700">Bill To:</h2>
+                            <p>${customerName}</p>
+                            <p>${customerEmail}</p>
+                            <p>${customerPhone}</p>
+                            <p>${customerAddress}</p>
+                        </div>
+                        <div class="text-right">
+                            <p><strong>Invoice Number:</strong> FG-${Math.floor(Math.random() * 10000)}</p>
+                            <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="text-xl font-semibold mb-4">Room Charges</h3>
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-200">
+                                    <th class="p-3 border">Room Type</th>
+                                    <th class="p-3 border">Room Number</th>
+                                    <th class="p-3 border">Nights</th>
+                                    <th class="p-3 border">Rate per Night</th>
+                                    <th class="p-3 border text-right">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${roomDetails.map(room => `
+                                    <tr>
+                                        <td class="p-3 border">${room.type}</td>
+                                        <td class="p-3 border">${room.number}</td>
+                                        <td class="p-3 border">${room.nights}</td>
+                                        <td class="p-3 border">${currencySymbol}${room.pricePerNight}</td>
+                                        <td class="p-3 border text-right">${currencySymbol}${room.subtotal.toFixed(2)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                            <tfoot>
+                                <tr class="font-bold">
+                                    <td colspan="4" class="p-3 border text-right">Room Total</td>
+                                    <td class="p-3 border text-right">${currencySymbol}${roomTotal.toFixed(2)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="text-xl font-semibold mb-4">Restaurant Charges</h3>
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-200">
+                                    <th class="p-3 border">Date</th>
+                                    <th class="p-3 border">Meal Type</th>
+                                    <th class="p-3 border">Location</th>
+                                    <th class="p-3 border">Quantity</th>
+                                    <th class="p-3 border text-right">Price</th>
+                                    <th class="p-3 border text-right">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${restaurantDetails.map(meal => `
+                                    <tr>
+                                        <td class="p-3 border">${meal.date}</td>
+                                        <td class="p-3 border">${meal.type}</td>
+                                        <td class="p-3 border">${meal.location}</td>
+                                        <td class="p-3 border">${meal.quantity}</td>
+                                        <td class="p-3 border text-right">${currencySymbol}${meal.price}</td>
+                                        <td class="p-3 border text-right">${currencySymbol}${meal.subtotal.toFixed(2)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                            <tfoot>
+                                <tr class="font-bold">
+                                    <td colspan="5" class="p-3 border text-right">Restaurant Total</td>
+                                    <td class="p-3 border text-right">${currencySymbol}${restaurantTotal.toFixed(2)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <div class="border-t pt-4">
+                        <div class="flex justify-between">
+                            <div class="w-1/2">
+                                <h3 class="font-semibold">Payment Details</h3>
+                                <p>Thank you for your stay!</p>
+                                <p>Exchange Rate: 1 USD = ${EXCHANGE_RATES.LKR} LKR</p>
+                            </div>
+                            <div class="w-1/2 text-right">
+                                <p class="text-lg"><strong>Subtotal:</strong> ${currencySymbol}${subtotal.toFixed(2)}</p>
+                                <p class="text-lg"><strong>Tax (10%):</strong> ${currencySymbol}${tax.toFixed(2)}</p>
+                                <p class="text-xl font-bold text-green-600"><strong>Total:</strong> ${currencySymbol}${total.toFixed(2)}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-8 text-gray-500 text-sm">
+                        <p>Thank you for staying at Flower Garden Hotel!</p>
+                        <p>Questions? Contact us at (555) 123-4567 or info@flowergardenhotel.com</p>
+                    </div>
+                </div>
+            `;
+
+            // Show invoice and print button
+            invoiceDisplay.classList.remove('hidden');
+            printButtonContainer.classList.remove('hidden');
+
+            // Scroll to invoice
+            invoiceDisplay.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Initial price setup for first inputs
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('roomBasePrice1').addEventListener('input', () => {
+                const selectedCurrency = document.getElementById('currencySelect').value;
+                const basePrice = document.getElementById('roomBasePrice1').value;
+                document.getElementById('roomPrice1').value = convertCurrency(basePrice, 'USD', selectedCurrency);
+            });
+
+            document.getElementById('mealBasePrice1').addEventListener('input', () => {
+                const selectedCurrency = document.getElementById('currencySelect').value;
+                const basePrice = document.getElementById('mealBasePrice1').value;
+                document.getElementById('mealPrice1').value = convertCurrency(basePrice, 'USD', selectedCurrency);
+            });
+        });
+    </script>
+</body>
+</html>
